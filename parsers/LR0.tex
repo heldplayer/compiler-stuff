@@ -1,0 +1,91 @@
+\documentclass{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+
+\setlength{\parskip}{\baselineskip}
+\setlength{\parindent}{0pt}
+
+\title{\textbf{LR(0) parsers}}
+\date{}
+
+\begin{document}
+	\maketitle
+	
+	Given a context free grammar $G = (V, T, P, S)$ with:\\
+	$V$ a finite set of variables/non-terminals,\\
+	$T$ a finite set of terminals,\\
+	$P$ a finite set of productions of the form $A \rightarrow \alpha$ with $A \in V$ and $\alpha \in (V \cup T)^*$,\\
+	$S \in V$ the starting symbol.
+	
+	We can construct an LR(0) parse table as follows:
+	
+	We define the set of items $I : \{A \rightarrow \alpha \cdot \beta | \alpha, \beta \in (V \cup T)^* \vee A \rightarrow \alpha \beta \in P \}$.\\
+	The dot indicates the contents of our parsing stack (left of the dot), and the expected input (right of the dot).
+	
+	We also define the following functions in pseudo-code to aid in the construction of the parsing table:
+	
+	$\textit{Closure}: 2^I \rightarrow 2^I$\\
+	$\textit{Closure}(\textit{items}) \mapsto \textit{result}$\\
+	\-\hspace{1em} $\textit{result} = \textit{items}$\\
+	\-\hspace{1em} $\textit{changed} = \textsc{True}$\\
+	\-\hspace{1em} $\textbf{while} \, \textit{changed} == \textsc{True} \textrm{:}$\\
+	\-\hspace{2em} $\textit{changed} = \textsc{False}$\\
+	\-\hspace{2em} $\textbf{for each} \, \textrm{item} \, A \rightarrow \alpha \cdot X \beta \in \textit{result} \, \textrm{with} \, X \in V \textrm{:}$\\
+	\-\hspace{3em} $\textbf{for each} \, \textrm{production} \, X \rightarrow \gamma \in P \, \textrm{with} \, X \rightarrow \cdot \gamma \notin \textit{result} \textrm{:}$\\
+	\-\hspace{4em} $\textit{result} = \textit{result} \cup \{X \rightarrow \cdot \gamma\}$\\
+	\-\hspace{4em} $\textit{changed} = \textsc{True}$
+	
+	$\textit{Goto}: 2^I \times (V \cup T) \rightarrow 2^I$\\
+	$\textit{Closure}(\textit{items}, \textit{symbol}) \mapsto \textit{result}$\\
+	\-\hspace{1em} $\textbf{if} \, \textit{symbol} == \$ \textrm{:}$\\
+	\-\hspace{2em} $\textit{result} = \{\}$\\
+	\-\hspace{1em} $\textbf{else} \textrm{:}$\\
+	\-\hspace{2em} $\textit{result} = \{\}$\\
+	\-\hspace{2em} $\textbf{for each} \, \textrm{item} \, A \rightarrow \alpha \cdot X \beta \in \textit{items} \, \textrm{with} \, X \in V \textrm{:}$\\
+	\-\hspace{3em} $\textit{result} = \textit{result} \cup \{A \rightarrow \alpha X \cdot \beta\}$\\
+	\-\hspace{2em} $\textit{result} = \textit{Closure}(\textit{result})$
+	
+	\pagebreak
+	
+	We can then use the following algorithm to create a state diagram for the LR(0) parser:
+	
+	\-\hspace{1em} $\textit{start} = \textit{Closure}(\{S' \rightarrow \cdot S \$\})$\\
+	\-\hspace{1em} $\textit{states} = \{ \textit{start} \} \hspace{8em} 2^{2^I}$\\
+	\-\hspace{1em} $\textit{edges} = \{\} \hspace{10em} (2^I \times (V \cup T)) \rightarrow 2^I$\\
+	\-\hspace{1em} $\textit{changed} = \textsc{True}$\\
+	\-\hspace{1em} $\textbf{while} \, \textit{changed} == \textsc{True} \textrm{:}$\\
+	\-\hspace{2em} $\textit{changed} = \textsc{False}$\\
+	\-\hspace{2em} $\textbf{for each} \, \textit{state} \in \textit{states}$\\
+	\-\hspace{3em} $\textbf{for each} \, \textrm{item} \, A \rightarrow \alpha \cdot X \beta \in \textit{state} \, \textrm{with} \, X \in (T \cup V) \textrm{:}$\\
+	\-\hspace{4em} $\textit{changed} = \textsc{True}$\\
+	\-\hspace{4em} $\textrm{target} = \textit{Goto}(\textit{state}, X)$\\
+	\-\hspace{4em} $\textrm{states} = \textrm{states} \cup \{\textrm{target}\}$\\
+	\-\hspace{4em} $\textrm{edges} = \textrm{edges} \cup \{(\textit{state}, X) \rightarrow \textit{target}\}$
+	
+	 Based on the generated state diagram, we can generate the parse table.
+	 The parse table is made up of states for the rows, and	terminals and non-terminals for the columns.
+	 An action in the parse table can be either to shift (terminals), to goto (non-terminals), to reduce (finishing a grammar rule), or to accept.
+	 
+	 We define the following actions:\\
+	 $\textsc{Shift} \, t \hspace{1em} t \in T$ consumes the current input character and puts it on the stack, then puts $t$ on the stack.\\
+	 $\textsc{Reduce} \, A \rightarrow \gamma \hspace{1em} A \rightarrow \gamma \in P$ pops the current state (top of the stack) and the previous symbol off of the stack, then looks up a $\textsc{Goto}$ action for the new current state and $A$ and pushes $A$ and the state from the $\textsc{Goto}$ action on the stack.\\
+	 $\textsc{Goto} \, s \hspace{1em} s \in \textit{states}$ used by $\textsc{Reduce}$ actions to determine the next state to go to.\\
+	 $\textsc{Accept}$ makes the parser accept the input string.
+	 
+	 We can now say:
+	 $$
+	 \textsc{Table}(\textit{state}, \textit{X}) =
+	 \begin{cases}
+	 \textsc{Shift} \, r & \textrm{if} \, X \in T, \exists! r : (\textit{state}, X) \rightarrow r \in edges\\
+	 \textsc{Goto} \, s & \textrm{if} \,  X \in V, \exists! r : (\textit{state}, X) \rightarrow s \in edges\\
+	 \textsc{Reduce} \, A \rightarrow \gamma & \textrm{if} \, A \rightarrow \gamma \cdot \in state\\
+	 \textsc{Accept} & \textrm{if} \, S \rightarrow S \cdot \$ \in state
+	 \end{cases}
+	 $$
+	 Where the value of \textit{state} and of $X$ during execution are taken from the top of the stack, and the current input character respectively.\\
+	 If the value for a $(\textit{state}, X)$ pair in \textsc{Table} can be multiple things (for example, a shift and a reduce, or a two reduces), then this indicates that the grammar $G$ is not LR(0) compatible.
+	
+\end{document}
+
